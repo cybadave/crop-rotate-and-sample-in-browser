@@ -170,12 +170,7 @@ var staticMethods = {
 			var buffer = evt.target.result;
 			var binary = "";
 			var bytes = new Uint8Array(buffer);
-			var length = bytes.byteLength;
-			for (var i = 0; i < length; i++) {
-				binary += String.fromCharCode(bytes[i]);
-			}
-			var b = new BinaryFile(buffer);
-			var exif = EXIF.readFromBinaryFile(b);
+			var exif = EXIF.readFromBinaryFile(bytes);
 		
 			// Inspired by http://www.daveperrett.com/articles/2012/07/28/exif-orientation-handling-is-a-ghetto/
 			// Lets handle the orientation tag, but lets ignore the horizontal/vertical flipping.
