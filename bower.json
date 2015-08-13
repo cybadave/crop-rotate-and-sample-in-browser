@@ -1,7 +1,7 @@
 {
-  "name": "image-manipulation",
+  "name": "image-manipulation-ie",
   "version": "0.0.4",
-  "homepage": "https://github.com/sfarthin/crop-rotate-and-sample-in-browser",
+  "homepage": "https://github.com/cybadave/crop-rotate-and-sample-in-browser",
   "authors": [
     "Steven Farthing <me@stevefar.com>"
   ],

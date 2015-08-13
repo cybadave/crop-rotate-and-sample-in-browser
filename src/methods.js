@@ -159,17 +159,23 @@ var staticMethods = {
 	
 	// This method determines if an image should be rotated based on EXIF meta data
 	getOrientationFromFile: function(file, callback) {
-		
+
 		var reader = new FileReader();
 
-		reader.readAsBinaryString(file);
-		
+		reader.readAsArrayBuffer(file);
 		reader.onload = function(evt) {
-			var rotate,
-				
-				// Use our third party libraries to read EXIF data
-				b = new BinaryFile(evt.target.result),
-				exif = EXIF.readFromBinaryFile(b);
+			var rotate;
+
+			// Use our third party libraries to read EXIF data
+			var buffer = evt.target.result;
+			var binary = "";
+			var bytes = new Uint8Array(buffer);
+			var length = bytes.byteLength;
+			for (var i = 0; i < length; i++) {
+				binary += String.fromCharCode(bytes[i]);
+			}
+			var b = new BinaryFile(buffer);
+			var exif = EXIF.readFromBinaryFile(b);
 		
 			// Inspired by http://www.daveperrett.com/articles/2012/07/28/exif-orientation-handling-is-a-ghetto/
 			// Lets handle the orientation tag, but lets ignore the horizontal/vertical flipping.

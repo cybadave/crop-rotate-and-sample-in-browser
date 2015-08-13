@@ -323,11 +323,12 @@ var EXIF = module.exports = (function() {
                 handleBinaryFile(new BinaryFile(e.target.result));
             };
 
-            fileReader.readAsBinaryString(img);
+            fileReader.readAsArrayBuffer(img);
         }
     }
 
     function findEXIFinJPEG(file) {
+        if (!file.getByteAt) return false;
         if (file.getByteAt(0) != 0xFF || file.getByteAt(1) != 0xD8) {
             return false; // not a valid jpeg
         }
