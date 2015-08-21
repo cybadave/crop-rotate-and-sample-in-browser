@@ -1,3 +1,95 @@
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  */
+/*  Base64 class: Base 64 encoding / decoding (c) Chris Veness 2002-2011                          */
+/*    note: depends on Utf8 class                                                                 */
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  */
+
+var Base64 = {};  // Base64 namespace
+
+Base64.code = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+
+/**
+ * Encode string into Base64, as defined by RFC 4648 [http://tools.ietf.org/html/rfc4648]
+ * (instance method extending String object). As per RFC 4648, no newlines are added.
+ *
+ * @param {String} str The string to be encoded as base-64
+ * @param {Boolean} [utf8encode=false] Flag to indicate whether str is Unicode string to be encoded
+ *   to UTF8 before conversion to base64; otherwise string is assumed to be 8-bit characters
+ * @returns {String} Base64-encoded string
+ */
+Base64.encode = function(str, utf8encode) {  // http://tools.ietf.org/html/rfc4648
+	utf8encode =  (typeof utf8encode == 'undefined') ? false : utf8encode;
+	var o1, o2, o3, bits, h1, h2, h3, h4, e=[], pad = '', c, plain, coded;
+	var b64 = Base64.code;
+
+	plain = utf8encode ? Utf8.encode(str) : str;
+
+	c = plain.length % 3;  // pad string to length of multiple of 3
+	if (c > 0) { while (c++ < 3) { pad += '='; plain += '\0'; } }
+	// note: doing padding here saves us doing special-case packing for trailing 1 or 2 chars
+
+	for (c=0; c<plain.length; c+=3) {  // pack three octets into four hexets
+		o1 = plain.charCodeAt(c);
+		o2 = plain.charCodeAt(c+1);
+		o3 = plain.charCodeAt(c+2);
+
+		bits = o1<<16 | o2<<8 | o3;
+
+		h1 = bits>>18 & 0x3f;
+		h2 = bits>>12 & 0x3f;
+		h3 = bits>>6 & 0x3f;
+		h4 = bits & 0x3f;
+
+		// use hextets to index into code string
+		e[c/3] = b64.charAt(h1) + b64.charAt(h2) + b64.charAt(h3) + b64.charAt(h4);
+	}
+	coded = e.join('');  // join() is far faster than repeated string concatenation in IE
+
+	// replace 'A's from padded nulls with '='s
+	coded = coded.slice(0, coded.length-pad.length) + pad;
+
+	return coded;
+}
+
+/**
+ * Decode string from Base64, as defined by RFC 4648 [http://tools.ietf.org/html/rfc4648]
+ * (instance method extending String object). As per RFC 4648, newlines are not catered for.
+ *
+ * @param {String} str The string to be decoded from base-64
+ * @param {Boolean} [utf8decode=false] Flag to indicate whether str is Unicode string to be decoded
+ *   from UTF8 after conversion from base64
+ * @returns {String} decoded string
+ */
+Base64.decode = function(str, utf8decode) {
+	utf8decode =  (typeof utf8decode == 'undefined') ? false : utf8decode;
+	var o1, o2, o3, h1, h2, h3, h4, bits, d=[], plain, coded;
+	var b64 = Base64.code;
+
+	coded = utf8decode ? Utf8.decode(str) : str;
+
+	for (var c=0; c<coded.length; c+=4) {  // unpack four hexets into three octets
+		h1 = b64.indexOf(coded.charAt(c));
+		h2 = b64.indexOf(coded.charAt(c+1));
+		h3 = b64.indexOf(coded.charAt(c+2));
+		h4 = b64.indexOf(coded.charAt(c+3));
+
+		bits = h1<<18 | h2<<12 | h3<<6 | h4;
+
+		o1 = bits>>>16 & 0xff;
+		o2 = bits>>>8 & 0xff;
+		o3 = bits & 0xff;
+
+		d[c/4] = String.fromCharCode(o1, o2, o3);
+		// check for padding
+		if (h4 == 0x40) d[c/4] = String.fromCharCode(o1, o2);
+		if (h3 == 0x40) d[c/4] = String.fromCharCode(o1);
+	}
+	plain = d.join('');  // join() is far faster than repeated string concatenation in IE
+
+	return utf8decode ? Utf8.decode(plain) : plain;
+}
+
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  */
+
 var EXIF = require("./exif"),
 	BinaryFile = require("./binaryFile"),
 	toBlob = require("./canvas-to-blob"),
@@ -6,17 +98,17 @@ var EXIF = require("./exif"),
 
 
 var staticMethods = {
-	
+
 	rotate: function(src_canvas, degrees) {
 
 		// We only allow the canvas to be rotated by 90,180,270 so that it continues to be a rectangle.
 		if(degrees % 90 != 0) {
 			throw "Rotate by 90, 180, 270 degrees only";
 		}
-		
+
 		var canvas = document.createElement("canvas"),
 			context = canvas.getContext("2d");
-		
+
 		// If image is rotate by 90 or 270, the canvas width and height will reverse.
 		if(degrees == 90 || degrees == 270) {
 			canvas.width = src_canvas.height;
@@ -26,79 +118,79 @@ var staticMethods = {
 			canvas.height = src_canvas.height;
 		}
 
-	    // save the unrotated context of the canvas so we can restore it later
-	    // the alternative is to untranslate & unrotate after drawing
+		// save the unrotated context of the canvas so we can restore it later
+		// the alternative is to untranslate & unrotate after drawing
 		// The translate method could potentially affect other methods if not.
-	    context.save();
+		context.save();
 
-	    // move to the center of the canvas
+		// move to the center of the canvas
 		if(degrees == 90 || degrees == 270)
 			context.translate(src_canvas.height/2,src_canvas.width/2);
 		else
 			context.translate(src_canvas.width/2,src_canvas.height/2);
-			
 
-	    // rotate the canvas using radians, so we convert degrees to radians
+
+		// rotate the canvas using radians, so we convert degrees to radians
 		// degrees/360 = radians/(2*PI) so...
 		// radians = degrees * PI/180
-	    context.rotate(degrees * Math.PI/180 );
+		context.rotate(degrees * Math.PI/180 );
 
-	    // draw the image
-	    // since the context is rotated, the image will be rotated also
+		// draw the image
+		// since the context is rotated, the image will be rotated also
 		context.drawImage(src_canvas,-src_canvas.width/2,-src_canvas.height/2);
 
-	    // we’re done with the rotating so restore the unrotated context
-	    context.restore();
-		
+		// we’re done with the rotating so restore the unrotated context
+		context.restore();
+
 		return canvas;
-		
+
 	},
-	
+
 	crop: function(canvas, x, y, w, h) {
-		
+
 		if(w == 0 && h == 0) {
 			return canvas;
 		}
-		
+
 		var outputCanvas = document.createElement("canvas");
-	    outputCanvas.width = w;
-	    outputCanvas.height = h;
+		outputCanvas.width = w;
+		outputCanvas.height = h;
 
 		var img = canvas.getContext("2d").getImageData(x, y, w, h);
-		
+
 		// Cropping is straightforward copy of a portion of the image data.
 		outputCanvas.getContext("2d").putImageData(img, 0, 0);
-		
+
 		return outputCanvas;
-		
+
 	},
 
 	/**
-	* NOTE: the resize method is not my own, but taken from stackoverflow
-	* http://stackoverflow.com/questions/18922880/html5-canvas-resize-downscale-image-high-quality/19223362#19223362
-	**/
+	 * NOTE: the resize method is not my own, but taken from stackoverflow
+	 * http://stackoverflow.com/questions/18922880/html5-canvas-resize-downscale-image-high-quality/19223362#19223362
+	 **/
 	resize: function(canvas, W2, H2) {
-		
+
 		var W = canvas.width,
 			H = canvas.height;
-		
+
 		// if no height/width is given lets jsut make it proportional
 		if(!H2) H2 =  Math.floor((W2 / W) * H)
 		if(!W2) W2 =  Math.floor((H2 / H) * W)
-		
+
 		var outputCanvas = document.createElement("canvas");
-	    outputCanvas.width = W2;
-	    outputCanvas.height = H2;
-		
+		outputCanvas.width = W2;
+		outputCanvas.height = H2;
+
 		var time1 = Date.now();
 		var img = canvas.getContext("2d").getImageData(0, 0, W, H);
 		var img2 = outputCanvas.getContext("2d").getImageData(0, 0, W2, H2);
 		var data = img.data;
 		var data2 = img2.data;
-	    var ratio_w = W / W2;
-	    var ratio_h = H / H2;
-	    var ratio_w_half = Math.ceil(ratio_w/2);
-	    var ratio_h_half = Math.ceil(ratio_h/2);
+		var ratio_w = W / W2;
+		var ratio_h = H / H2;
+		var ratio_w_half = Math.ceil(ratio_w/2);
+		var ratio_h_half = Math.ceil(ratio_h/2);
 
 		for(var j = 0; j < H2; j++){
 			for(var i = 0; i < W2; i++){
@@ -130,48 +222,47 @@ var staticMethods = {
 								gx_g += weight * data[dx + 1];
 								gx_b += weight * data[dx + 2];
 								weights += weight;
-								}
 							}
-						}		
+						}
 					}
+				}
 				data2[x2]     = gx_r / weights;
 				data2[x2 + 1] = gx_g / weights;
 				data2[x2 + 2] = gx_b / weights;
 				data2[x2 + 3] = gx_a / weights_alpha;
-				}
 			}
+		}
 
 		outputCanvas.getContext("2d").putImageData(img2, 0, 0);
 		return outputCanvas;
 
 	},
-	
+
 	/**
-	*
-	* Non-chainable methods below
-	*
-	**/
-	
+	 *
+	 * Non-chainable methods below
+	 *
+	 **/
+
 	// Convert our canvas to a blob so it can be transferred or reread
 	toBlob: function(canvas) {
 		return toBlob(canvas.toDataURL());
 	},
-	
+
 	// This method determines if an image should be rotated based on EXIF meta data
 	getOrientationFromFile: function(file, callback) {
 
-		var reader = new FileReader();
+		var reader = new mOxie.FileReader();
 
-		reader.readAsArrayBuffer(file);
+		reader.readAsDataURL(file);
 		reader.onload = function(evt) {
 			var rotate;
 
 			// Use our third party libraries to read EXIF data
 			var buffer = evt.target.result;
-			var binary = "";
-			var bytes = new Uint8Array(buffer);
-			var exif = EXIF.readFromBinaryFile(bytes);
-		
+			var bytes = Base64.decode(buffer.split(',')[1]);
+			var exif = EXIF.readFromBinaryFile(new BinaryFile(bytes));
+
 			// Inspired by http://www.daveperrett.com/articles/2012/07/28/exif-orientation-handling-is-a-ghetto/
 			// Lets handle the orientation tag, but lets ignore the horizontal/vertical flipping.
 			if(exif.Orientation == 7 || exif.Orientation == 8) {
@@ -183,24 +274,24 @@ var staticMethods = {
 			} else {
 				rotate = 0;
 			}
-		
+
 			callback(rotate);
-		
+
 		}
 
-		
+
 	},
-	
+
 	// Paints an image onto a new canvas
 	getCanvasFromImage: function(img) {
 		var canvas = document.createElement("canvas");
-	    canvas.width = img.width;
-	    canvas.height = img.height;
-	    canvas.getContext("2d").drawImage(img, 0, 0);
-		
+		canvas.width = img.width;
+		canvas.height = img.height;
+		canvas.getContext("2d").drawImage(img, 0, 0);
+
 		return canvas;
 	},
-	
+
 	// Uses xhr to pull a BLOB form a url and gets file and orientation from it
 	getCanvasFromUrl: function(url, callback) {
 		var xhr = new XMLHttpRequest();
@@ -213,46 +304,49 @@ var staticMethods = {
 
 		xhr.send();
 	},
-	
+
 	// Gets the orientation and canvas from a image BLOB
 	getCanvasFromFile: function(file, fn) {
 		if(!fn) fn = function() {};
-		
-		async.parallel([
-		    function(callback) { staticMethods.getOrientationFromFile(file, function(rotate) { callback(null, rotate) }); },
-		    function(callback) { 
-				
-				// Lets convert File to an Image first
-				var reader = new FileReader();
-				reader.readAsDataURL(file);
-				reader.onload = function(e) {
-					var img = document.createElement("img");
-					img.onload = function() { 
-						callback(null, staticMethods.getCanvasFromImage(img));
-					};
-					img.src = e.target.result;					
-				}
 
-			}
-		],
-		function(err, results){
-			var rotate = results[0],
-				canvas = results[1];
-			
-			if(rotate)
-				canvas = staticMethods.rotate(canvas, rotate);
-			
-			
-			fn(canvas, file);
-		});
-		
+		async.parallel([
+				function(callback) { staticMethods.getOrientationFromFile(file, function(rotate) { callback(null, rotate) }); },
+				function(callback) {
+
+					// Lets convert File to an Image first
+
+
+					var reader = new mOxie.FileReader();
+
+					reader.readAsDataURL(file);
+					reader.onload = function(e) {
+						var img = document.createElement("img");
+						img.onload = function() {
+							callback(null, staticMethods.getCanvasFromImage(img));
+						};
+						img.src = e.target.result;
+					}
+
+				}
+			],
+			function(err, results){
+				var rotate = results[0],
+					canvas = results[1];
+
+				if(rotate)
+					canvas = staticMethods.rotate(canvas, rotate);
+
+
+				fn(canvas, file);
+			});
+
 	}
-	
+
 };
 
 /**
-* Lets make it chainable
-**/
+ * Lets make it chainable
+ **/
 function ImageMethodConstructor(canvas) {
 	this.canvas = canvas;
 	return this;
